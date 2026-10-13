@@ -42,15 +42,29 @@ final class AppState {
     private(set) var items: [ClipItem] = []
     var query = "" { didSet { reload() } }
     var filter: ClipFilter = .all { didSet { reload() } }
-    var selectedId: String?
+    /// Selection : un element principal et, dans la fenetre, plusieurs par ⇧-clic et ⌘-clic.
+    private(set) var selection = ClipSelection()
+    var selectedId: String? {
+        get { selection.primary }
+        set { selection.select(newValue) }
+    }
+    /// Derniere suppression, pour ⌘Z et le bandeau « Annuler ».
+    private(set) var lastDeletion: DeletedClips?
+    private(set) var deletionNotice: DeletionNotice?
+    private var noticeTask: Task<Void, Never>?
+    /// Limite demandee qui supprimerait des elements : en attente de confirmation.
+    var pendingLimit: PendingLimit?
+    #if DEBUG
+    /// Mode capture : ligne affichee comme survolee.
+    var snapshotHoverId: String?
+    #endif
     /// Incremente a chaque ouverture du panneau : la vue redonne le focus au champ.
     private(set) var panelOpenCount = 0
     private(set) var panel: FloatingPanelController<AnyView>?
 
     // Reglages
-    var historyLimit: Int {
-        didSet { UserDefaults.standard.set(historyLimit, forKey: Brand.key("HistoryLimit")); try? store.trim(to: historyLimit); reload() }
-    }
+    /// Elements non epingles gardes (0 : tous). Les epingles ne comptent pas et ne sont jamais purges.
+    private(set) var historyLimit: Int
     var directPaste: Bool {
         didSet { UserDefaults.standard.set(directPaste, forKey: Brand.key("DirectPaste")) }
     }
@@ -66,7 +80,7 @@ final class AppState {
             fatalError("Impossible d'ouvrir la base \(AppDatabase.defaultURL.path) : \(error)")
         }
         let defaults = UserDefaults.standard
-        historyLimit = defaults.object(forKey: Brand.key("HistoryLimit")) as? Int ?? 500
+        historyLimit = HistoryLimit.resolve(stored: defaults.object(forKey: Brand.key("HistoryLimit")))
         directPaste = defaults.bool(forKey: Brand.key("DirectPaste"))
         excludedApps = defaults.string(forKey: Brand.key("ExcludedApps")) ?? ""
         watcher.excludedApps = Self.parseApps(excludedApps)
@@ -109,9 +123,11 @@ final class AppState {
             NSLog("Pince : lecture impossible : \(error)")
             items = []
         }
-        if let selectedId, !items.contains(where: { $0.id == selectedId }) { self.selectedId = items.first?.id }
-        if selectedId == nil { selectedId = items.first?.id }
+        selection.prune(to: orderedIds)
     }
+
+    /// Ids dans l'ordre affiche (sections comprises).
+    var orderedIds: [String] { sections.flatMap(\.items).map(\.id) }
 
     var pinnedItems: [ClipItem] { items.filter(\.pinned) }
     var unpinnedItems: [ClipItem] { items.filter { !$0.pinned } }
@@ -142,14 +158,94 @@ final class AppState {
         reload()
     }
 
-    func delete(_ item: ClipItem) {
-        try? store.delete(item.id)
+    /// Elements vises par une action sur `item` : toute la selection s'il en fait partie.
+    func targets(of item: ClipItem) -> Set<String> {
+        selection.ids.contains(item.id) && selection.ids.count > 1 ? selection.ids : [item.id]
+    }
+
+    func delete(_ item: ClipItem) { delete(ids: targets(of: item)) }
+
+    func deleteSelection() { delete(ids: selection.ids) }
+
+    func delete(ids: Set<String>) {
+        guard !ids.isEmpty else { return }
+        let next = ClipSelection.next(afterDeleting: ids, in: orderedIds)
+        remember(try? store.delete(ids: ids))
+        reload()
+        selection.select(next)
+    }
+
+    /// « Tout effacer » : les epingles restent ; annulable.
+    func clearHistory(keepPinned: Bool) {
+        remember(try? store.clear(keepPinned: keepPinned))
         reload()
     }
 
-    func clearHistory(keepPinned: Bool) {
-        try? store.clear(keepPinned: keepPinned)
+    var canUndoDeletion: Bool { lastDeletion != nil }
+
+    func undoDeletion() {
+        guard let deleted = lastDeletion else { return }
+        try? store.restore(deleted)
+        lastDeletion = nil
+        hideNotice()
         reload()
+        if let first = deleted.items.first { selection.select(first.id) }
+    }
+
+    func hideNotice() {
+        noticeTask?.cancel()
+        deletionNotice = nil
+    }
+
+    private func remember(_ deleted: DeletedClips?) {
+        guard let deleted, !deleted.isEmpty else { return }
+        lastDeletion = deleted
+        let notice = DeletionNotice(count: deleted.count)
+        deletionNotice = notice
+        noticeTask?.cancel()
+        noticeTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(6))
+            guard !Task.isCancelled, self?.deletionNotice?.id == notice.id else { return }
+            self?.deletionNotice = nil
+        }
+    }
+
+    // MARK: Limite
+
+    /// Choix des Reglages : applique tout de suite, ou demande confirmation si des elements partiraient.
+    func requestHistoryLimit(_ limit: Int) {
+        let overflow = (try? store.overflowCount(limit: limit)) ?? 0
+        if overflow > 0 {
+            pendingLimit = PendingLimit(limit: limit, overflow: overflow)
+        } else {
+            applyHistoryLimit(limit)
+        }
+    }
+
+    func applyHistoryLimit(_ limit: Int) {
+        pendingLimit = nil
+        historyLimit = limit
+        UserDefaults.standard.set(limit, forKey: Brand.key("HistoryLimit"))
+        try? store.trim(to: limit)
+        reload()
+    }
+
+    #if DEBUG
+    /// Mode capture : plusieurs elements choisis, comme par ⌘-clic.
+    func snapshotSelect(_ ids: [String]) {
+        selection.select(ids.first)
+        for id in ids.dropFirst() { selection.click(id, in: orderedIds, toggle: true) }
+    }
+    #endif
+
+    // MARK: Clics
+
+    /// Clic sur une ligne ; ⇧ et ⌘ etendent la selection si `multiple`.
+    func click(_ item: ClipItem, multiple: Bool) {
+        let flags = NSEvent.modifierFlags
+        selection.click(item.id, in: orderedIds,
+                        extend: multiple && flags.contains(.shift),
+                        toggle: multiple && flags.contains(.command))
     }
 
     /// Remet l'element dans le presse-papiers ; colle directement si l'option est active et autorisee.
@@ -175,7 +271,7 @@ final class AppState {
         guard !ordered.isEmpty else { return }
         let index = ordered.firstIndex { $0.id == selectedId } ?? 0
         let next = min(max(0, index + delta), ordered.count - 1)
-        selectedId = ordered[next].id
+        selection.select(ordered[next].id)
     }
 
     var selectedItem: ClipItem? { items.first { $0.id == selectedId } }
@@ -196,4 +292,18 @@ final class AppState {
     }
 
     func hidePanel() { panel?.hide() }
+}
+
+struct DeletionNotice: Equatable {
+    let id = UUID()
+    let count: Int
+    var text: String { count > 1 ? "\(count) éléments supprimés" : "1 élément supprimé" }
+}
+
+struct PendingLimit: Equatable {
+    let limit: Int
+    let overflow: Int
+    var question: String {
+        "Garder les \(limit) derniers et supprimer \(overflow) élément\(overflow > 1 ? "s" : "")\u{00A0}?"
+    }
 }

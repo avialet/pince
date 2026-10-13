@@ -15,11 +15,16 @@ struct SettingsView: View {
                        width: 480) {
             SettingsCard(icon: "doc.on.clipboard", color: Theme.accent, title: "Historique") {
                 @Bindable var state = state
-                Picker("Conserver", selection: $state.historyLimit) {
-                    Text("100 éléments").tag(100)
-                    Text("500 éléments").tag(500)
-                    Text("2 000 éléments").tag(2000)
-                    Text("Sans limite").tag(0)
+                Picker("Conserver", selection: Binding(get: { state.historyLimit }, set: { state.requestHistoryLimit($0) })) {
+                    ForEach(HistoryLimit.choices(including: state.historyLimit), id: \.self) { limit in
+                        Text(HistoryLimit.label(limit)).tag(limit)
+                    }
+                }
+                .alert(state.pendingLimit?.question ?? "", isPresented: Binding(get: { state.pendingLimit != nil }, set: { if !$0 { state.pendingLimit = nil } })) {
+                    Button("Supprimer", role: .destructive) { if let pending = state.pendingLimit { state.applyHistoryLimit(pending.limit) } }
+                    Button("Annuler", role: .cancel) { state.pendingLimit = nil }
+                } message: {
+                    Text("Les éléments épinglés ne comptent pas et sont toujours gardés.")
                 }
                 Toggle("Coller directement dans l'app active (↩)", isOn: $state.directPaste)
                     .onChange(of: state.directPaste) { _, on in if on, !Paster.isTrusted { Paster.requestTrust() }; trusted = Paster.isTrusted }
@@ -36,7 +41,7 @@ struct SettingsView: View {
                 }
                 TextField("Apps ignorées (identifiants, séparés par des virgules)", text: $state.excludedApps)
                     .textFieldStyle(.roundedBorder).font(Theme.ui(12))
-                Button("Effacer l'historique (garder les épingles)") { state.clearHistory(keepPinned: true) }
+                Button("Tout effacer (garder les épingles)") { state.clearHistory(keepPinned: true) }
                     .controlSize(.small)
             }
         }

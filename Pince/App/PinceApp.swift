@@ -51,10 +51,21 @@ struct PinceCommands: Commands {
                 .keyboardShortcut(.return, modifiers: .command).disabled(state.selectedItem == nil)
             Button("Épingler / désépingler") { if let item = state.selectedItem { state.togglePin(item) } }
                 .keyboardShortcut("p").disabled(state.selectedItem == nil)
-            Button("Supprimer") { if let item = state.selectedItem { state.delete(item) } }
-                .keyboardShortcut(.delete, modifiers: .command).disabled(state.selectedItem == nil)
+            Button(state.selection.ids.count > 1 ? "Supprimer les \(state.selection.ids.count) éléments" : "Supprimer") { state.deleteSelection() }
+                .keyboardShortcut(.delete, modifiers: .command).disabled(state.selection.ids.isEmpty)
+        }
+        // ⌘Z annule d'abord la derniere suppression, sinon la saisie (champ de recherche, reglages).
+        CommandGroup(replacing: .undoRedo) {
+            Button(state.canUndoDeletion ? "Annuler la suppression" : "Annuler") {
+                if state.canUndoDeletion { state.undoDeletion() } else { NSApp.sendAction(Selector(("undo:")), to: nil, from: nil) }
+            }
+            .keyboardShortcut("z")
+            Button("Rétablir") { NSApp.sendAction(Selector(("redo:")), to: nil, from: nil) }
+                .keyboardShortcut("z", modifiers: [.command, .shift])
+        }
+        CommandGroup(after: .pasteboard) {
             Divider()
-            Button("Effacer l'historique (garder les épingles)") { state.clearHistory(keepPinned: true) }
+            Button("Tout effacer (garder les épingles)") { state.clearHistory(keepPinned: true) }
         }
     }
 }

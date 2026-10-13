@@ -3,7 +3,9 @@ import VialetKit
 import PinceCore
 
 /// Liste de l'historique avec recherche, partagee par le panneau et la fenetre.
-/// Le champ garde le focus : les fleches, ↩, ⌘P et ⌘⌫ agissent sur la selection.
+/// Le champ garde le focus : les fleches, ↩, ⌘P et ⌘⌫ agissent sur la selection, ⌫ aussi quand
+/// la recherche est vide ; ⌘Z annule la derniere suppression. Dans la fenetre, ⇧-clic et ⌘-clic
+/// choisissent plusieurs elements.
 struct ClipList: View {
     @Environment(AppState.self) private var state
     let compact: Bool
@@ -24,9 +26,17 @@ struct ClipList: View {
                     .onKeyPress(.return) { if let item = state.selectedItem { state.use(item) }; return .handled }
                     .onKeyPress(.escape) { if state.query.isEmpty { return .ignored }; state.query = ""; return .handled }
                     .onKeyPress(phases: .down) { press in
-                        guard press.modifiers.contains(.command), let item = state.selectedItem else { return .ignored }
+                        if press.key == .delete || press.key == .deleteForward {
+                            // ⌫ seul : seulement recherche vide, pour ne pas gener la saisie.
+                            let bare = press.modifiers.isDisjoint(with: [.command, .option, .control, .shift])
+                            guard (bare && state.query.isEmpty) || press.modifiers == .command else { return .ignored }
+                            state.deleteSelection()
+                            return .handled
+                        }
+                        guard press.modifiers == .command else { return .ignored }
+                        if press.key == "z", state.canUndoDeletion { state.undoDeletion(); return .handled }
+                        guard let item = state.selectedItem else { return .ignored }
                         if press.key == "p" { state.togglePin(item); return .handled }
-                        if press.key == .delete { state.delete(item); return .handled }
                         return .ignored
                     }
                 if !state.query.isEmpty {
@@ -48,10 +58,10 @@ struct ClipList: View {
                             ForEach(state.sections, id: \.title) { section in
                                 Section {
                                     ForEach(section.items) { item in
-                                        ClipRow(item: item, selected: item.id == state.selectedId, compact: compact)
+                                        ClipRow(item: item, selected: state.selection.ids.contains(item.id), compact: compact)
                                             .id(item.id)
                                             .onTapGesture(count: 2) { state.use(item) }
-                                            .onTapGesture { state.selectedId = item.id }
+                                            .onTapGesture { state.click(item, multiple: !compact); searchFocused = true }
                                             .contextMenu { RowMenu(item: item) }
                                     }
                                 } header: {
@@ -69,6 +79,13 @@ struct ClipList: View {
                 }
             }
         }
+        .overlay(alignment: .bottom) {
+            if let notice = state.deletionNotice {
+                DeletionToast(notice: notice).padding(.bottom, 12)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .animation(.easeOut(duration: 0.18), value: state.deletionNotice)
         .onAppear { searchFocused = true }
         .onChange(of: state.panelOpenCount) { _, _ in searchFocused = true }
     }
@@ -106,7 +123,29 @@ struct RowMenu: View {
         }
         Divider()
         Button(item.pinned ? "Désépingler" : "Épingler") { state.togglePin(item) }
-        Button("Supprimer") { state.delete(item) }
+        let count = state.targets(of: item).count
+        Button(count > 1 ? "Supprimer les \(count) éléments" : "Supprimer") { state.delete(item) }
+    }
+}
+
+/// « 3 éléments supprimés · Annuler », quelques secondes en bas de la liste.
+struct DeletionToast: View {
+    @Environment(AppState.self) private var state
+    let notice: DeletionNotice
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Text(notice.text).font(Theme.ui(12.5, weight: .medium)).foregroundStyle(Theme.ink)
+            Button("Annuler") { state.undoDeletion() }
+                .buttonStyle(.plain).font(Theme.ui(12.5, weight: .bold)).foregroundStyle(Theme.accent)
+                .help("Annuler la suppression (⌘Z)")
+        }
+        .padding(.horizontal, 14).padding(.vertical, 8)
+        .background(Capsule().fill(Theme.card))
+        .overlay(Capsule().strokeBorder(Theme.line, lineWidth: 1))
+        .shadow(color: .black.opacity(0.12), radius: 8, y: 3)
+        .accessibilityElement(children: .combine)
+        .accessibilityAction(named: "Annuler") { state.undoDeletion() }
     }
 }
 
@@ -115,6 +154,15 @@ struct ClipRow: View {
     let item: ClipItem
     let selected: Bool
     let compact: Bool
+    @State private var hovered = false
+    @State private var trashHovered = false
+
+    private var showsTrash: Bool {
+        #if DEBUG
+        if state.snapshotHoverId == item.id { return true }
+        #endif
+        return hovered
+    }
 
     var body: some View {
         HStack(spacing: 11) {
@@ -128,10 +176,24 @@ struct ClipRow: View {
             }
             Spacer(minLength: 6)
             if item.pinned { Image(systemName: "pin.fill").font(.system(size: 10, weight: .bold)).foregroundStyle(Theme.accent) }
+            if showsTrash {
+                Button { state.delete(ids: [item.id]) } label: {
+                    Image(systemName: "trash").font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(trashHovered ? Theme.danger : Theme.inkFaint)
+                        .frame(width: 24, height: 24).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .onHover { trashHovered = $0 }
+                .help("Supprimer")
+                .accessibilityLabel("Supprimer")
+            }
         }
         .padding(.horizontal, 10).padding(.vertical, 6)
         .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(selected ? Theme.accentSelection : .clear))
         .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .onHover { hovered = $0; if !$0 { trashHovered = false } }
+        .accessibilityElement(children: .combine)
+        .accessibilityAction(named: "Supprimer") { state.delete(ids: [item.id]) }
     }
 
     @ViewBuilder

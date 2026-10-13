@@ -21,7 +21,7 @@ struct MenuBarContent: View {
         Divider()
         Button("Afficher le panneau") { state.togglePanel() }
         Button("Ouvrir \(Brand.displayName)") { WindowSummoner.show() }
-        Button("Effacer l'historique (garder les épingles)") { state.clearHistory(keepPinned: true) }
+        Button("Tout effacer (garder les épingles)") { state.clearHistory(keepPinned: true) }
         Divider()
         SettingsLink { Text("Réglages…") }
         Button("Quitter") { NSApp.terminate(nil) }
