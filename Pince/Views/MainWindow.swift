@@ -19,14 +19,16 @@ struct MainWindow: View {
                 .listStyle(.sidebar)
                 .scrollContentBackground(.hidden)
                 Spacer(minLength: 0)
-                UpdateBanner(updater: Updater.shared)
                 ShortcutFooter(HotKeyController.shared.shortcut)
             }
             .frame(width: 200)
             .background(Theme.sidebar)
-            ClipList(compact: false)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(AmbientBackground())
+            VStack(spacing: 0) {
+                UpdateNotice(updater: .shared)
+                ClipList(compact: false)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(AmbientBackground())
         }
     }
 }
