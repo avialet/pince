@@ -15,12 +15,20 @@ enum Migrations {
                 t.primaryKey("key", .text)
                 t.column("value", .text).notNull()
             }
-            // Tables de l'app : a ajouter ici, par exemple
-            // try db.create(table: "item") { t in
-            //     t.autoIncrementedPrimaryKey("id")
-            //     t.column("createdAt", .datetime).notNull()
-            //     t.column("title", .text).notNull()
-            // }
+            try db.create(table: "clip") { t in
+                t.primaryKey("id", .text)
+                t.column("kind", .text).notNull()
+                t.column("text", .text)
+                t.column("imagePath", .text)
+                t.column("byteCount", .integer).notNull().defaults(to: 0)
+                t.column("contentHash", .text).notNull().unique()
+                t.column("sourceApp", .text)
+                t.column("createdAt", .datetime).notNull()
+                t.column("pinned", .boolean).notNull().defaults(to: false)
+                t.column("preview", .text).notNull().defaults(to: "")
+                t.column("searchText", .text).notNull().defaults(to: "")
+            }
+            try db.create(index: "clip_createdAt", on: "clip", columns: ["createdAt"])
         }
 
         return m
