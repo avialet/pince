@@ -5,15 +5,16 @@ import PinceCore
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
+        #if DEBUG
+        // Mode capture : ni presse-papiers, ni raccourci, ni reseau.
+        if runSnapshotIfRequested() { return }
+        #endif
         AppState.shared.start()
         HotKeyController.shared.start { AppState.shared.togglePanel() }
         // Laisse l'app s'afficher avant le moindre appel reseau.
         DispatchQueue.main.asyncAfter(deadline: .now() + 6) {
             MainActor.assumeIsolated { Updater.shared.checkAutomatically() }
         }
-        #if DEBUG
-        runSnapshotIfRequested()
-        #endif
     }
 
     /// Liens `pince://` : ouvre la fenetre principale.
@@ -31,53 +32,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 }
 
 #if DEBUG
-/// Mode de verification sans ecran : `Pince -PinceSnapshot /chemin/base -PinceSnapshotSeed 1`
-/// (avec PINCE_DB_PATH vers une base jetable) remplit l'historique d'exemples,
-/// capture la fenetre principale (`base-1.png`) puis le panneau (`base-2.png`), quitte.
+/// Mode capture sans ecran : `Pince -PinceSnapshot <dossier> [-PinceSnapshotSeed 1]
+/// [-PinceSnapshotAppearance dark] [-PinceSnapshotOnly a,b] [-PinceSnapshotSize 1000x720]`
+/// (avec PINCE_DB_PATH vers une base jetable). Ecrit `mainWindow`, `settings`, `about` et
+/// `floatingPanel` (`-sombre` en sombre) dans le dossier, puis quitte (voir SnapshotRunner).
 extension AppDelegate {
-    func runSnapshotIfRequested() {
-        let defaults = UserDefaults.standard
-        guard let base = defaults.string(forKey: "PinceSnapshot") else { return }
-        Task { @MainActor in
-            let state = AppState.shared
-            if defaults.bool(forKey: "PinceSnapshotSeed") {
-                let now = Date()
-                let samples: [(String, String?, TimeInterval)] = [
-                    ("https://developer.apple.com/documentation/appkit/nspasteboard", "com.apple.Safari", -40),
-                    ("#2F6FEB", "com.figma.Desktop", -300),
-                    ("{\"name\":\"Pince\",\"version\":\"0.1.0\",\"tags\":[\"mac\",\"local\"]}", "com.microsoft.VSCode", -3600 * 2),
-                    ("Réunion de lancement jeudi 14 h, salle Calanque. Apporter les maquettes imprimées.", "com.apple.Notes", -3600 * 5),
-                    ("contact@exemple.fr", "com.microsoft.Outlook", -86400 - 600),
-                    ("func toggle() {\n    isVisible ? hide() : show()\n}", "com.apple.dt.Xcode", -86400 * 3),
-                    ("~/Documents/Notes/reunion.md", "com.apple.finder", -86400 * 9),
-                ]
-                for (text, app, age) in samples { _ = try? state.store.record(text: text, sourceApp: app, now: now.addingTimeInterval(age)) }
-                _ = try? state.store.record(files: [URL(fileURLWithPath: "/Users/Shared/Exemples/Rapport annuel.pdf"), URL(fileURLWithPath: "/Users/Shared/Exemples/Budget 2026.xlsx")], sourceApp: "com.apple.finder", now: now.addingTimeInterval(-120))
-                if let pinned = try? state.store.items(matching: "2F6FEB", kind: nil).first { try? state.store.setPinned(pinned.id, true) }
-                state.reload()
-            }
-            try? await Task.sleep(for: .seconds(2))
-            await applySnapshotSize(defaults)
-            if let window = WindowSummoner.mainWindow { try? WindowSnapshot.write(window, to: URL(fileURLWithPath: base + "-1.png")) }
+    func runSnapshotIfRequested() -> Bool {
+        guard SnapshotRequest.parse(prefix: Brand.name, arguments: CommandLine.arguments) != nil else { return false }
+        let state = AppState.shared
+        if UserDefaults.standard.bool(forKey: Brand.key("SnapshotSeed")) { seed(state) }
+        let panel = SnapshotScenario("floatingPanel") {
             state.togglePanel()
-            try? await Task.sleep(for: .seconds(1))
-            if let panelWindow = NSApp.windows.first(where: { $0 is FloatingPanel }) {
-                try? WindowSnapshot.write(panelWindow, to: URL(fileURLWithPath: base + "-2.png"))
-            }
-            print("items: \(state.items.count), sections: \(state.sections.map { "\($0.title)=\($0.items.count)" })")
-            NSApp.terminate(nil)
+            try await Task.sleep(for: .seconds(1))
+            return NSApp.windows.first { $0 is FloatingPanel && $0.isVisible }
         }
+        let standard = SnapshotRunner.standardScenarios(mainWindow: { WindowSummoner.mainWindow }, identity: Brand.identity)
+        return SnapshotRunner.runIfRequested(prefix: Brand.name, scenarios: standard + [panel])
     }
 
-    /// `-PinceSnapshotSize 1000x720` : taille de contenu (points) de la fenetre principale avant capture.
-    func applySnapshotSize(_ defaults: UserDefaults) async {
-        guard let spec = defaults.string(forKey: "PinceSnapshotSize") else { return }
-        let parts = spec.lowercased().split(separator: "x").compactMap { Double($0) }
-        guard parts.count == 2, parts.allSatisfy({ $0 > 0 }), let window = WindowSummoner.mainWindow else { return }
-        window.setContentSize(NSSize(width: parts[0], height: parts[1]))
-        window.contentView?.layoutSubtreeIfNeeded()
-        // Un tour de boucle pour que SwiftUI refasse la disposition.
-        try? await Task.sleep(for: .milliseconds(500))
+    /// Exemples neutres, sans donnee personnelle.
+    private func seed(_ state: AppState) {
+        let now = Date()
+        let samples: [(String, String?, TimeInterval)] = [
+            ("https://developer.apple.com/documentation/appkit/nspasteboard", "com.apple.Safari", -40),
+            ("#2F6FEB", "com.figma.Desktop", -300),
+            ("{\"name\":\"Pince\",\"version\":\"0.1.0\",\"tags\":[\"mac\",\"local\"]}", "com.microsoft.VSCode", -3600 * 2),
+            ("R\u{00E9}union de lancement jeudi 14 h, salle Calanque. Apporter les maquettes imprim\u{00E9}es.", "com.apple.Notes", -3600 * 5),
+            ("contact@exemple.fr", "com.microsoft.Outlook", -86400 - 600),
+            ("func toggle() {\n    isVisible ? hide() : show()\n}", "com.apple.dt.Xcode", -86400 * 3),
+            ("~/Documents/Notes/reunion.md", "com.apple.finder", -86400 * 9),
+        ]
+        for (text, app, age) in samples { _ = try? state.store.record(text: text, sourceApp: app, now: now.addingTimeInterval(age)) }
+        let files = ["/Users/Shared/Exemples/Rapport annuel.pdf", "/Users/Shared/Exemples/Budget 2026.xlsx"].map(URL.init(fileURLWithPath:))
+        _ = try? state.store.record(files: files, sourceApp: "com.apple.finder", now: now.addingTimeInterval(-120))
+        if let pinned = try? state.store.items(matching: "2F6FEB", kind: nil).first { try? state.store.setPinned(pinned.id, true) }
+        state.reload()
     }
 }
 #endif
