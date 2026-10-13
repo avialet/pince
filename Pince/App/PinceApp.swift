@@ -7,6 +7,8 @@ struct PinceApp: App {
     @State private var state = AppState.shared
     @AppStorage("PinceMenuBar") private var menuBarVisible = true
 
+    init() { Theme.configure(Brand.palette) }
+
     var body: some Scene {
         Window(Brand.displayName, id: "main") {
             MainWindow()
@@ -19,16 +21,19 @@ struct PinceApp: App {
         .windowStyle(.hiddenTitleBar)
         .windowBackgroundDragBehavior(.enabled)
         .defaultSize(width: 920, height: 600)
-        .commands { PinceCommands(state: state) }
+        .commands {
+            AboutCommands(identity: Brand.identity)
+            PinceCommands(state: state)
+        }
 
         Settings {
-            SettingsView()
+            SettingsView().environment(state)
         }
 
         MenuBarExtra(isInserted: $menuBarVisible) {
             MenuBarContent().environment(state)
         } label: {
-            Image(systemName: "doc.on.clipboard")
+            MenuBarIcon(glyph: Brand.glyph)
         }
     }
 }

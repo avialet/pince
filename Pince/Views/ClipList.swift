@@ -33,7 +33,7 @@ struct ClipList: View {
                     Button { state.query = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(Theme.inkFaint) }.buttonStyle(.plain)
                 }
                 if compact {
-                    Text("pince.").font(Theme.display(15, weight: .heavy)).foregroundStyle(Theme.inkFaint)
+                    Wordmark.Mini(Brand.displayName)
                 }
             }
             .padding(.horizontal, 16)
@@ -55,8 +55,7 @@ struct ClipList: View {
                                             .contextMenu { RowMenu(item: item) }
                                     }
                                 } header: {
-                                    Text(section.title)
-                                        .font(Theme.ui(11, weight: .bold)).foregroundStyle(Theme.inkFaint).textCase(.uppercase)
+                                    SectionHeader(section.title)
                                         .padding(.horizontal, 16).padding(.top, 10).padding(.bottom, 4)
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                         .background(compact ? Theme.card : Theme.paper.opacity(0.92))
@@ -128,10 +127,10 @@ struct ClipRow: View {
                 Text(subtitle).font(Theme.ui(11)).foregroundStyle(Theme.inkSoft).lineLimit(1)
             }
             Spacer(minLength: 6)
-            if item.pinned { Image(systemName: "pin.fill").font(.system(size: 10, weight: .bold)).foregroundStyle(Brand.accent) }
+            if item.pinned { Image(systemName: "pin.fill").font(.system(size: 10, weight: .bold)).foregroundStyle(Theme.accent) }
         }
         .padding(.horizontal, 10).padding(.vertical, 6)
-        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(selected ? Brand.accent.opacity(0.14) : .clear))
+        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(selected ? Theme.accentSelection : .clear))
         .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
@@ -162,8 +161,8 @@ struct ClipRow: View {
 
     private var icon: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Brand.accent.opacity(0.12))
-            Image(systemName: item.kind.icon).font(.system(size: 14, weight: .semibold)).foregroundStyle(Brand.accent)
+            RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Theme.accent.opacity(0.12))
+            Image(systemName: item.kind.icon).font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.accent)
         }
     }
 
