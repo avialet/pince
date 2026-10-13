@@ -18,6 +18,16 @@ public struct ClipSelection: Equatable, Sendable {
         ids = id.map { [$0] } ?? []
     }
 
+    /// Plusieurs elements (restaures, par exemple) ; le principal est le premier affiche.
+    /// Liste vide : selection inchangee.
+    public mutating func select(all chosen: [String], in order: [String]) {
+        let set = Set(chosen)
+        guard let first = order.first(where: { set.contains($0) }) ?? chosen.first else { return }
+        ids = set
+        primary = first
+        anchor = first
+    }
+
     /// Clic sur `id` ; `order` : les ids dans l'ordre affiche.
     public mutating func click(_ id: String, in order: [String], extend: Bool = false, toggle: Bool = false) {
         if extend, let anchor, let a = order.firstIndex(of: anchor), let b = order.firstIndex(of: id) {

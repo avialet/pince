@@ -88,6 +88,30 @@ let historyTests: (String, [Test]) = ("History", [
         try s.restore(removed)
         expectEqual(try? Data(contentsOf: url), png, "fichier restaure")
     },
+    Test("trimReturnsUndoableSnapshot") {
+        let s = try store()
+        let ids = try fill(s, 5)
+        try s.setPinned(ids[0], true)
+        let removed = try s.trim(to: 2)
+        expectEqual(Set(removed.items.map(\.id)), [ids[1], ids[2]])
+        expectEqual(Set(try s.restore(removed)), [ids[1], ids[2]])
+        expectEqual(try s.items(matching: nil, kind: nil, limit: 10).count, 5)
+    },
+    Test("restoreReportsRestoredIds") {
+        let s = try store()
+        let ids = try fill(s, 3)
+        let removed = try s.delete(ids: [ids[0], ids[1]])
+        _ = try s.record(text: "texte 0", sourceApp: nil, now: t0.addingTimeInterval(100))
+        expectEqual(try s.restore(removed), [ids[1]], "texte 0 recopie : non restaure")
+    },
+    Test("deletionUndoableForOneMinute") {
+        let s = try store()
+        let ids = try fill(s, 1)
+        let removed = try s.delete(ids: [ids[0]], now: t0)
+        expect(removed.isUndoable(at: t0.addingTimeInterval(59)), "59 s")
+        expect(!removed.isUndoable(at: t0.addingTimeInterval(60)), "60 s : expire")
+        expectEqual(DeletedClips.undoLifetime, 60)
+    },
 ])
 
 let selectionTests: (String, [Test]) = ("Selection", [
@@ -120,6 +144,14 @@ let selectionTests: (String, [Test]) = ("Selection", [
         sel.click("c", in: ["a", "b", "c"], toggle: true)
         sel.select("b")
         expectEqual(sel.ids, ["b"])
+    },
+    Test("selectAllRestored") {
+        var sel = ClipSelection(primary: "a")
+        sel.select(all: ["d", "b"], in: ["a", "b", "c", "d"])
+        expectEqual(sel.ids, ["b", "d"])
+        expectEqual(sel.primary, "b", "le premier affiche")
+        sel.select(all: [], in: ["a"])
+        expectEqual(sel.ids, ["b", "d"], "rien : inchange")
     },
     Test("pruneKeepsVisibleAndPicksNextAfterDeletion") {
         let order = ["a", "b", "c", "d"]

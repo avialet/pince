@@ -109,20 +109,21 @@ public final class ClipStore: Sendable {
 
     /// Supprime ces elements (ids inconnus ignores) ; le resultat permet de les restaurer.
     @discardableResult
-    public func delete(ids: Set<String>) throws -> DeletedClips {
+    public func delete(ids: Set<String>, now: Date = Date()) throws -> DeletedClips {
         let ids = Array(ids)
-        return try remove { db in try ClipItem.filter(keys: ids).fetchAll(db) }
+        return try remove(now: now) { db in try ClipItem.filter(keys: ids).fetchAll(db) }
     }
 
     /// Vide l'historique ; les epingles survivent si demande. Le resultat permet de restaurer.
     @discardableResult
     public func clear(keepPinned: Bool) throws -> DeletedClips {
-        try remove { db in keepPinned ? try ClipItem.filter(Column("pinned") == false).fetchAll(db) : try ClipItem.fetchAll(db) }
+        try remove(now: Date()) { db in keepPinned ? try ClipItem.filter(Column("pinned") == false).fetchAll(db) : try ClipItem.fetchAll(db) }
     }
 
     /// Remet des elements supprimes (et leurs images). Un contenu copie a nouveau entre-temps
-    /// n'est pas duplique.
-    public func restore(_ deleted: DeletedClips) throws {
+    /// n'est pas duplique. Renvoie les ids reellement restaures.
+    @discardableResult
+    public func restore(_ deleted: DeletedClips) throws -> [String] {
         let restored: [ClipItem] = try database.write { db in
             var done: [ClipItem] = []
             for item in deleted.items where try ClipItem.filter(Column("contentHash") == item.contentHash).fetchCount(db) == 0
@@ -135,6 +136,7 @@ public final class ClipStore: Sendable {
         for item in restored {
             if let data = deleted.images[item.id], let url = imageURL(for: item) { try? data.write(to: url) }
         }
+        return restored.map(\.id)
     }
 
     /// Nombre d'elements non epingles qu'une limite `limit` supprimerait (0 : sans limite).
@@ -144,7 +146,7 @@ public final class ClipStore: Sendable {
         return max(0, count - limit)
     }
 
-    private func remove(_ victims: @escaping @Sendable (Database) throws -> [ClipItem]) throws -> DeletedClips {
+    private func remove(now: Date, _ victims: @escaping @Sendable (Database) throws -> [ClipItem]) throws -> DeletedClips {
         let removed: [ClipItem] = try database.write { db in
             let items = try victims(db)
             for v in items { try v.delete(db) }
@@ -155,20 +157,18 @@ public final class ClipStore: Sendable {
             if let url = imageURL(for: item), let data = try? Data(contentsOf: url) { images[item.id] = data }
             removeImage(of: item)
         }
-        return DeletedClips(items: removed, images: images)
+        return DeletedClips(items: removed, images: images, date: now)
     }
 
     /// Garde les `max` entrees non epinglees les plus recentes (les epingles ne comptent pas).
-    /// `max <= 0` signifie « sans limite » : ne supprime rien.
-    public func trim(to max: Int) throws {
-        guard max > 0 else { return }
-        let removed: [ClipItem] = try database.write { db in
-            let victims = try ClipItem.filter(Column("pinned") == false).order(Column("createdAt").desc)
+    /// `max <= 0` signifie « sans limite » : ne supprime rien. Le resultat permet de restaurer.
+    @discardableResult
+    public func trim(to max: Int, now: Date = Date()) throws -> DeletedClips {
+        guard max > 0 else { return DeletedClips(items: [], images: [:], date: now) }
+        return try remove(now: now) { db in
+            try ClipItem.filter(Column("pinned") == false).order(Column("createdAt").desc)
                 .limit(1_000_000, offset: max).fetchAll(db)
-            for v in victims { try v.delete(db) }
-            return victims
         }
-        removed.forEach(removeImage)
     }
 
     private func removeImage(of item: ClipItem) {
@@ -188,6 +188,10 @@ public final class ClipStore: Sendable {
 public struct DeletedClips: Sendable {
     public let items: [ClipItem]
     let images: [String: Data]
+    /// Moment de la suppression : « Annuler » vaut `undoLifetime` secondes.
+    public let date: Date
+    public static let undoLifetime: TimeInterval = 60
     public var count: Int { items.count }
+    public func isUndoable(at now: Date) -> Bool { now.timeIntervalSince(date) < Self.undoLifetime }
     public var isEmpty: Bool { items.isEmpty }
 }
