@@ -327,16 +327,22 @@ final class AppState {
     // MARK: Panneau
 
     func togglePanel() {
+        if panel?.isVisible == true {
+            panel?.hide()
+        } else {
+            showPanel()
+        }
+    }
+
+    /// Montre le panneau, recherche videe et premier element choisi ; deja visible : rien ne change.
+    func showPanel() {
         let panel = self.panel ?? FloatingPanelController(size: Self.panelSize) { AnyView(PanelView().environment(AppState.shared)) }
         self.panel = panel
-        if panel.isVisible {
-            panel.hide()
-        } else {
-            query = ""
-            selectedId = items.first?.id
-            panelOpenCount += 1
-            panel.show()
-        }
+        guard !panel.isVisible else { return }
+        query = ""
+        selectedId = items.first?.id
+        panelOpenCount += 1
+        panel.show()
     }
 
     func hidePanel() { panel?.hide() }

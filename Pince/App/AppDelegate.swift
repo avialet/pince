@@ -8,7 +8,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         #if DEBUG
         // Mode capture : ni presse-papiers, ni raccourci, ni reseau.
         if runSnapshotIfRequested() { return }
+        if writeHubManifestIfRequested() { return }
         #endif
+        AppActions.shared.publish()
         AppState.shared.start()
         HotKeyController.shared.start { AppState.shared.togglePanel() }
         // Laisse l'app s'afficher avant le moindre appel reseau.
@@ -17,9 +19,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// Liens `pince://` : ouvre la fenetre principale.
+    /// Liens `pince://` : `pince://historique` ouvre le panneau de l'historique, `pince://update` verifie
+    /// les mises a jour ; le reste ouvre la fenetre principale.
     func application(_ application: NSApplication, open urls: [URL]) {
-        WindowSummoner.show()
+        for url in urls where !AppActions.shared.handle(url) { WindowSummoner.show() }
     }
 
     /// L'app reste disponible (raccourci global, barre des menus) fenetre fermee.
@@ -32,11 +35,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 }
 
 #if DEBUG
+extension AppDelegate {
+    /// `Pince -PinceHubManifest <dossier>` : ecrit la fiche pour Vialet dans le dossier (sans la condition
+    /// du dossier Applications, sans prevenir Vialet), imprime son chemin et quitte.
+    func writeHubManifestIfRequested() -> Bool {
+        guard let path = UserDefaults.standard.string(forKey: Brand.key("HubManifest")) else { return false }
+        let directory = URL(fileURLWithPath: path, isDirectory: true)
+        do {
+            try AppActions.shared.manifest().write(to: directory)
+            print("fiche : \(HubManifest.fileURL(bundleIdentifier: Brand.identity.bundleIdentifier, in: directory).path)")
+        } catch {
+            print("fiche non ecrite : \(error)")
+        }
+        exit(0)
+    }
+}
+
 /// Mode capture sans ecran : `Pince -PinceSnapshot <dossier> [-PinceSnapshotSeed 1]
 /// [-PinceSnapshotAppearance dark] [-PinceSnapshotOnly a,b] [-PinceSnapshotSize 1000x720]`
 /// (avec PINCE_DB_PATH vers une base jetable). Ecrit `mainWindow`, `settings`, `about`,
-/// `floatingPanel`, `historique` (selection multiple, ligne survolee avec sa corbeille) et
-/// `annulation` (bandeau apres une suppression) (`-sombre` en sombre), puis quitte (voir SnapshotRunner).
+/// `floatingPanel`, `historique` (selection multiple, ligne survolee avec sa corbeille),
+/// `annulation` (bandeau apres une suppression) et `actionHistorique` (action rapide `pince://historique`)
+/// (`-sombre` en sombre), puis quitte (voir SnapshotRunner).
 extension AppDelegate {
     func runSnapshotIfRequested() -> Bool {
         guard SnapshotRequest.parse(prefix: Brand.name, arguments: CommandLine.arguments) != nil else { return false }
@@ -65,8 +85,14 @@ extension AppDelegate {
             try await Task.sleep(for: .milliseconds(600))
             return WindowSummoner.mainWindow
         }
+        // Action rapide de Vialet, par son URL : le panneau de l'historique.
+        let action = SnapshotScenario("actionHistorique") {
+            AppActions.shared.handle(URL(string: "pince://historique")!)
+            try await Task.sleep(for: .seconds(1))
+            return NSApp.windows.first { $0 is FloatingPanel && $0.isVisible }
+        }
         let standard = SnapshotRunner.standardScenarios(mainWindow: { WindowSummoner.mainWindow }, identity: Brand.identity)
-        return SnapshotRunner.runIfRequested(prefix: Brand.name, scenarios: standard + [panel, history, undo])
+        return SnapshotRunner.runIfRequested(prefix: Brand.name, scenarios: standard + [panel, history, undo, action])
     }
 
     /// Exemples neutres, sans donnee personnelle.
