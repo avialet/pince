@@ -6,11 +6,10 @@ import PinceCore
 struct SettingsView: View {
     @Environment(AppState.self) private var state
     @State private var trusted = Paster.isTrusted
-    @AppStorage(Brand.key("MenuBar")) private var menuBarVisible = true
 
     var body: some View {
         SettingsScreen(app: Brand.identity, hotKey: HotKeyController.shared, updater: Updater.shared,
-                       menuBarVisible: $menuBarVisible,
+                       menuBar: MenuBarPresence.shared,
                        hotKeyHint: "Depuis n'importe quelle app : ouvre le panneau de l'historique, ↩ remet l'élément choisi dans le presse-papiers.",
                        width: 480) {
             SettingsCard(icon: "doc.on.clipboard", color: Theme.accent, title: "Historique") {

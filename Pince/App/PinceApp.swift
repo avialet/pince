@@ -5,7 +5,6 @@ import VialetKit
 struct PinceApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var state = AppState.shared
-    @AppStorage(Brand.key("MenuBar")) private var menuBarVisible = true
 
     /// Teintes de l'app avant le premier rendu (et police Bricolage Grotesque des titres).
     init() { Theme.configure(Brand.palette) }
@@ -32,7 +31,7 @@ struct PinceApp: App {
             SettingsView().environment(state)
         }
 
-        MenuBarExtra(isInserted: $menuBarVisible) {
+        MenuBarExtra(isInserted: MenuBarPresence.shared.binding) {
             MenuBarContent().environment(state)
         } label: {
             MenuBarIcon(glyph: Brand.glyph)
