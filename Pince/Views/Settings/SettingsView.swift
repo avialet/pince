@@ -1,8 +1,11 @@
 import SwiftUI
 import VialetKit
+import PinceCore
 
 struct SettingsView: View {
+    @Environment(AppState.self) private var state
     private let hotKey = HotKeyController.shared
+    @State private var trusted = Paster.isTrusted
     @AppStorage("PinceMenuBar") private var menuBarVisible = true
     @State private var launchAtLogin = LaunchAtLogin.isEnabled
     @State private var loginNeedsApproval = LaunchAtLogin.needsApproval
@@ -26,7 +29,7 @@ struct SettingsView: View {
                 }
                 Text(hotKey.isTaken
                      ? "Cette combinaison est déjà utilisée par une autre app. Choisissez-en une autre."
-                     : "Depuis n'importe quelle app : affiche ou masque \(Brand.displayName).")
+                     : "Depuis n'importe quelle app : ouvre le panneau de l'historique, ↩ remet l'élément choisi dans le presse-papiers.")
                     .font(Theme.ui(12))
                     .foregroundStyle(hotKey.isTaken ? Theme.danger : Theme.inkSoft)
                     .fixedSize(horizontal: false, vertical: true)
@@ -52,6 +55,33 @@ struct SettingsView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
+            SettingsCard(icon: "doc.on.clipboard", color: Brand.accent, title: "Historique") {
+                @Bindable var state = state
+                Picker("Conserver", selection: $state.historyLimit) {
+                    Text("100 éléments").tag(100)
+                    Text("500 éléments").tag(500)
+                    Text("2 000 éléments").tag(2000)
+                    Text("Sans limite").tag(0)
+                }
+                Toggle("Coller directement dans l'app active (↩)", isOn: $state.directPaste)
+                    .onChange(of: state.directPaste) { _, on in if on, !Paster.isTrusted { Paster.requestTrust() }; trusted = Paster.isTrusted }
+                if state.directPaste, !trusted {
+                    HStack(spacing: 6) {
+                        Text("À autoriser dans Réglages Système › Confidentialité et sécurité › Accessibilité.")
+                            .font(Theme.ui(12)).foregroundStyle(Theme.coral).fixedSize(horizontal: false, vertical: true)
+                        Button("Vérifier") { trusted = Paster.isTrusted }
+                            .buttonStyle(.link).font(Theme.ui(12, weight: .semibold))
+                    }
+                } else {
+                    Text("Sans cette option, ↩ remet l'élément dans le presse-papiers : à vous de coller avec ⌘V. Les copies marquées confidentielles par les gestionnaires de mots de passe ne sont jamais enregistrées.")
+                        .font(Theme.ui(12)).foregroundStyle(Theme.inkSoft).fixedSize(horizontal: false, vertical: true)
+                }
+                TextField("Apps ignorées (identifiants, séparés par des virgules)", text: $state.excludedApps)
+                    .textFieldStyle(.roundedBorder).font(Theme.ui(12))
+                Button("Effacer l'historique (garder les épingles)") { state.clearHistory(keepPinned: true) }
+                    .controlSize(.small)
+            }
+
             SettingsCard(icon: "arrow.down.circle", color: Theme.coral, title: "Mises à jour") {
                 UpdateCard(updater: Updater.shared)
             }
@@ -68,7 +98,7 @@ struct SettingsView: View {
         .toggleStyle(.switch)
         .font(Theme.ui(13))
         .padding(26)
-        .frame(width: 460)
+        .frame(width: 480)
         .background(Theme.paper)
         .fontDesign(.rounded)
     }

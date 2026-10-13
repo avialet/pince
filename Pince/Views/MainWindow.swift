@@ -1,29 +1,37 @@
 import SwiftUI
 import VialetKit
+import PinceCore
 
 struct MainWindow: View {
     @Environment(AppState.self) private var state
 
     var body: some View {
-        ZStack {
-            AmbientBackground(accent: Brand.accent)
-            VStack(alignment: .leading, spacing: 14) {
+        @Bindable var state = state
+        HStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .firstTextBaseline, spacing: 0) {
-                    Text(Brand.displayName).font(Theme.display(34)).foregroundStyle(Theme.ink)
-                    Text(".").font(Theme.display(34)).foregroundStyle(Brand.accent)
+                    Text(Brand.displayName).font(Theme.display(26)).foregroundStyle(Theme.ink)
+                    Text(".").font(Theme.display(26)).foregroundStyle(Brand.accent)
                 }
-                Text("Tout commence ici. Remplacez cette vue par l'ecran principal de l'app.")
-                    .font(Theme.ui(14)).foregroundStyle(Theme.inkSoft)
-                HStack(spacing: 8) {
-                    Chip("Local", icon: "lock", color: Theme.pine)
-                    Chip("Sans compte", icon: "person.slash", color: Theme.sea)
-                    Chip(HotKeyController.shared.shortcut.display, icon: "keyboard", color: Brand.accent)
+                .padding(.horizontal, 18).padding(.top, 22).padding(.bottom, 12)
+                List(ClipFilter.sidebar, id: \.self, selection: $state.filter) { filter in
+                    Label(filter.label, systemImage: filter.icon)
+                        .font(Theme.ui(13, weight: .medium))
+                        .foregroundStyle(Theme.ink)
                 }
-                Spacer()
+                .listStyle(.sidebar)
+                .scrollContentBackground(.hidden)
+                Spacer(minLength: 0)
                 UpdateBanner(updater: Updater.shared)
+                Text("Raccourci \(HotKeyController.shared.shortcut.display)")
+                    .font(Theme.ui(11)).foregroundStyle(Theme.inkFaint)
+                    .padding(.horizontal, 18).padding(.bottom, 14)
             }
-            .padding(32)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .frame(width: 200)
+            .background(Theme.sidebar)
+            ClipList(compact: false)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(AmbientBackground(accent: Brand.accent))
         }
     }
 }

@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="docs/screenshots/icone.png" width="128" alt="Icône de Pince">
+
 # Pince
 
 **Gardez plusieurs copies sous la main.**
@@ -10,15 +12,19 @@
 
 [**Télécharger le DMG**](https://github.com/avialet/pince/releases/latest) · [Site](https://pince.vialet.app)
 
+<img src="docs/screenshots/panneau.png" width="700" alt="Le panneau de Pince, ouvert par le raccourci global">
+
 </div>
 
 ## Ce que fait Pince
 
-<!-- a adapter : trois idees, une phrase chacune -->
+Le presse-papiers du Mac ne retient qu'une chose. Pince retient tout ce que vous copiez, texte, liens, images, fichiers, et vous le rend en un raccourci.
 
-- **Première idée.** Une phrase.
-- **Deuxième idée.** Une phrase.
-- **Rester chez vous.** Tout est stocké sur votre Mac. Aucun compte, aucun serveur, aucune télémétrie.
+- **Un raccourci, un panneau, ↩.** ⇧⌘Espace ouvre un panneau par-dessus n'importe quelle app. Tapez quelques lettres, choisissez avec les flèches, ↩ remet l'élément dans le presse-papiers. En option, Pince colle directement dans l'app active.
+- **Il reconnaît ce qu'il garde.** Lien, adresse, couleur, JSON, code, chemin, nombre, image, fichiers : chaque copie est reconnue et affichée en conséquence, avec l'app d'origine et l'ancienneté. Une couleur montre sa pastille, un JSON se formate, un lien s'ouvre.
+- **Discret et local.** L'historique est un fichier SQLite sur votre Mac, les images sont rangées à côté. Les copies que les gestionnaires de mots de passe marquent confidentielles ne sont jamais enregistrées, et vous pouvez exclure des apps.
+
+<img src="docs/screenshots/fenetre.png" width="900" alt="La fenêtre de Pince, filtrée par type">
 
 ## Installation
 
@@ -53,19 +59,23 @@ Le seul échange réseau de Pince est cette lecture de la version publiée. Aucu
 
 ## Notice
 
-<!-- a adapter -->
-
-- **Raccourci global** (⇧⌘Espace par défaut, modifiable dans les Réglages) : affiche ou masque Pince depuis n'importe quelle app.
+- **⇧⌘Espace** (modifiable dans les Réglages) ouvre le panneau depuis n'importe quelle app. **↑↓** choisir, **↩** copier (ou coller directement si l'option est active), **⌘P** épingler, **⌘⌫** supprimer, **esc** fermer. Un clic ailleurs ferme aussi.
+- La **recherche** ignore les accents et la casse : « eleve » trouve « Élève ».
+- Les **épingles** restent en tête et survivent au nettoyage de l'historique.
+- Une copie identique ne crée pas de doublon : elle remonte en tête.
+- La **fenêtre principale** ajoute les filtres par type (liens, images, fichiers, couleurs, code…). L'**icône de la barre des menus** liste les sept dernières copies.
+- **Clic droit** sur une entrée : copier, ouvrir le lien, afficher dans le Finder, copier le JSON formaté, épingler, supprimer.
+- **Coller directement** (Réglages › Historique) simule ⌘V dans l'app active ; macOS demande l'autorisation d'accessibilité une seule fois. Sans l'option, ↩ copie et vous collez vous-même.
 - Fermer la fenêtre ne quitte pas l'app : le raccourci et l'icône de la barre des menus restent actifs. **⌘Q** quitte vraiment.
-- Le lien `pince://` ouvre la fenêtre principale.
 
 ### Vos données
 
 ```text
-~/Library/Application Support/Pince/pince.sqlite
+~/Library/Application Support/Pince/pince.sqlite      # textes, liens, chemins, metadonnees
+~/Library/Application Support/Pince/images/           # images copiees, en PNG
 ```
 
-Pour sauvegarder, copiez ce dossier. Pour repartir de zéro, quittez l'app et supprimez-le.
+Pour sauvegarder, copiez ce dossier. Pour repartir de zéro, quittez l'app et supprimez-le. Dans les Réglages, l'historique se limite à 100, 500 ou 2 000 éléments (500 par défaut), et « Effacer l'historique » garde les épingles.
 
 ## Compiler depuis les sources
 
@@ -82,7 +92,7 @@ make release   # fabrique build/Pince-X.Y.Z.dmg et son empreinte
 
 | Dossier | Contenu |
 |---|---|
-| `Packages/PinceCore` | Noyau sans interface : modèles, base SQLite ([GRDB](https://github.com/groue/GRDB.swift)), logique |
+| `Packages/PinceCore` | Noyau sans interface : détection du contenu, historique SQLite ([GRDB](https://github.com/groue/GRDB.swift)), recherche, épingles |
 | `Pince` | L'application SwiftUI ; `App/Brand.swift` porte son identité |
 | `scripts` | Assemblage de l'app, du DMG et de l'icône |
 | `docs` | [Publier une version](docs/publier-une-version.md), [tests](docs/tests.md), notes de version |
