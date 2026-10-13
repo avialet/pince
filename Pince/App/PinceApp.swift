@@ -24,6 +24,7 @@ struct PinceApp: App {
         .defaultSize(width: 920, height: 600)
         .commands {
             AboutCommands(identity: Brand.identity)
+            UpdateCommands(updater: .shared)
             PinceCommands(state: state)
         }
 
