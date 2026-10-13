@@ -123,10 +123,12 @@ public final class ClipStore: Sendable {
     }
 
     /// Garde les `max` entrees non epinglees les plus recentes (les epingles ne comptent pas).
+    /// `max <= 0` signifie « sans limite » : ne supprime rien.
     public func trim(to max: Int) throws {
+        guard max > 0 else { return }
         let removed: [ClipItem] = try database.write { db in
             let victims = try ClipItem.filter(Column("pinned") == false).order(Column("createdAt").desc)
-                .limit(1_000_000, offset: Swift.max(0, max)).fetchAll(db)
+                .limit(1_000_000, offset: max).fetchAll(db)
             for v in victims { try v.delete(db) }
             return victims
         }

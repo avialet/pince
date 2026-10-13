@@ -20,7 +20,7 @@
 
 Le presse-papiers du Mac ne retient qu'une chose. Pince retient tout ce que vous copiez, texte, liens, images, fichiers, et vous le rend en un raccourci.
 
-- **Un raccourci, un panneau, ↩.** ⇧⌘Espace ouvre un panneau par-dessus n'importe quelle app. Tapez quelques lettres, choisissez avec les flèches, ↩ remet l'élément dans le presse-papiers. En option, Pince colle directement dans l'app active.
+- **Un raccourci, un panneau, ↩.** ⌃⇧Espace ouvre un panneau par-dessus n'importe quelle app. Tapez quelques lettres, choisissez avec les flèches, ↩ remet l'élément dans le presse-papiers. En option, Pince colle directement dans l'app active.
 - **Il reconnaît ce qu'il garde.** Lien, adresse, couleur, JSON, code, chemin, nombre, image, fichiers : chaque copie est reconnue et affichée en conséquence, avec l'app d'origine et l'ancienneté. Une couleur montre sa pastille, un JSON se formate, un lien s'ouvre.
 - **Discret et local.** L'historique est un fichier SQLite sur votre Mac, les images sont rangées à côté. Les copies que les gestionnaires de mots de passe marquent confidentielles ne sont jamais enregistrées, et vous pouvez exclure des apps.
 
@@ -59,7 +59,7 @@ Le seul échange réseau de Pince est cette lecture de la version publiée. Aucu
 
 ## Notice
 
-- **⇧⌘Espace** (modifiable dans les Réglages) ouvre le panneau depuis n'importe quelle app. **↑↓** choisir, **↩** copier (ou coller directement si l'option est active), **⌘P** épingler, **⌘⌫** supprimer, **esc** fermer. Un clic ailleurs ferme aussi.
+- **⌃⇧Espace** (modifiable dans les Réglages) ouvre le panneau depuis n'importe quelle app. **↑↓** choisir, **↩** copier (ou coller directement si l'option est active), **⌘P** épingler, **⌘⌫** supprimer, **esc** fermer. Un clic ailleurs ferme aussi.
 - La **recherche** ignore les accents et la casse : « eleve » trouve « Élève ».
 - Les **épingles** restent en tête et survivent au nettoyage de l'historique.
 - Une copie identique ne crée pas de doublon : elle remonte en tête.

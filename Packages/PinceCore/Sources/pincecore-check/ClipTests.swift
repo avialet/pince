@@ -48,6 +48,8 @@ let storeTests: (String, [Test]) = ("Store", [
         try s.trim(to: 3)
         let afterTrim = try s.items(matching: nil, kind: nil, limit: 10).map(\.id)
         expectEqual(afterTrim, [ids[5], ids[4], ids[3], ids[0]], "3 recents + l'epingle")
+        try s.trim(to: 0)
+        expectEqual(try s.items(matching: nil, kind: nil, limit: 10).map(\.id), afterTrim, "0 = sans limite, rien supprime")
         try s.delete(ids[5])
         expectEqual(try s.items(matching: nil, kind: nil, limit: 10).count, 3)
         try s.clear(keepPinned: true)
