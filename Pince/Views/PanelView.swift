@@ -3,6 +3,10 @@ import VialetKit
 
 /// Contenu du panneau flottant ouvert par le raccourci global.
 struct PanelView: View {
+    /// Marge transparente autour de la carte : l'ombre de PanelCard (rayon 18, decalage 8) s'y estompe
+    /// sans etre coupee par le bord de la fenetre, en haut comme en bas.
+    static let margin: CGFloat = 32
+
     @Environment(AppState.self) private var state
 
     var body: some View {
@@ -22,8 +26,8 @@ struct PanelView: View {
                 }
                 .padding(.horizontal, 16).padding(.vertical, 9)
             }
-            .frame(width: AppState.panelSize.width - 32, height: AppState.panelSize.height - 24)
+            .frame(width: AppState.panelSize.width - 2 * Self.margin, height: AppState.panelSize.height - 2 * Self.margin)
         }
-        .padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 16)
+        .padding(Self.margin)
     }
 }

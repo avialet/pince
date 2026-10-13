@@ -32,7 +32,8 @@ enum ClipFilter: Hashable {
 @Observable
 final class AppState {
     static let shared = AppState()
-    static let panelSize = CGSize(width: 680, height: 460)
+    /// Fenetre du panneau : carte de 648 x 436 et marge de `PanelView.margin` pour son ombre.
+    static let panelSize = CGSize(width: 712, height: 500)
 
     let database: AppDatabase
     let store: ClipStore
