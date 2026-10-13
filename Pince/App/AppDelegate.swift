@@ -56,7 +56,7 @@ extension AppDelegate {
         let samples: [(String, String?, TimeInterval)] = [
             ("https://developer.apple.com/documentation/appkit/nspasteboard", "com.apple.Safari", -40),
             ("#2F6FEB", "com.figma.Desktop", -300),
-            ("{\"name\":\"Pince\",\"version\":\"0.1.0\",\"tags\":[\"mac\",\"local\"]}", "com.microsoft.VSCode", -3600 * 2),
+            ("{\"name\":\"Pince\",\"version\":\"0.2.0\",\"tags\":[\"mac\",\"local\"]}", "com.microsoft.VSCode", -3600 * 2),
             ("R\u{00E9}union de lancement jeudi 14 h, salle Calanque. Apporter les maquettes imprim\u{00E9}es.", "com.apple.Notes", -3600 * 5),
             ("contact@exemple.fr", "com.microsoft.Outlook", -86400 - 600),
             ("func toggle() {\n    isVisible ? hide() : show()\n}", "com.apple.dt.Xcode", -86400 * 3),
