@@ -54,11 +54,9 @@ struct PinceCommands: Commands {
             Button(state.selection.ids.count > 1 ? "Supprimer les \(state.selection.ids.count) éléments" : "Supprimer") { state.deleteSelection() }
                 .keyboardShortcut(.delete, modifiers: .command).disabled(state.selection.ids.isEmpty)
         }
-        // ⌘Z annule d'abord la derniere suppression, sinon la saisie (champ de recherche, reglages).
+        // ⌘Z : la saisie d'abord, puis la derniere suppression (60 s, fenetre ou panneau), sinon undo: standard.
         CommandGroup(replacing: .undoRedo) {
-            Button(state.canUndoDeletion ? "Annuler la suppression" : "Annuler") {
-                if state.canUndoDeletion { state.undoDeletion() } else { NSApp.sendAction(Selector(("undo:")), to: nil, from: nil) }
-            }
+            Button("Annuler") { state.undoCommand() }
             .keyboardShortcut("z")
             Button("Rétablir") { NSApp.sendAction(Selector(("redo:")), to: nil, from: nil) }
                 .keyboardShortcut("z", modifiers: [.command, .shift])

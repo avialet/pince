@@ -34,7 +34,7 @@ struct ClipList: View {
                             return .handled
                         }
                         guard press.modifiers == .command else { return .ignored }
-                        if press.key == "z", state.canUndoDeletion { state.undoDeletion(); return .handled }
+                        if press.key == "z", !AppState.textCanUndo, state.canUndoDeletion { state.undoDeletion(); return .handled }
                         guard let item = state.selectedItem else { return .ignored }
                         if press.key == "p" { state.togglePin(item); return .handled }
                         return .ignored
@@ -136,16 +136,18 @@ struct DeletionToast: View {
     var body: some View {
         HStack(spacing: 10) {
             Text(notice.text).font(Theme.ui(12.5, weight: .medium)).foregroundStyle(Theme.ink)
-            Button("Annuler") { state.undoDeletion() }
-                .buttonStyle(.plain).font(Theme.ui(12.5, weight: .bold)).foregroundStyle(Theme.accent)
-                .help("Annuler la suppression (⌘Z)")
+            if notice.undoable {
+                Button("Annuler") { state.undoDeletion() }
+                    .buttonStyle(.plain).font(Theme.ui(12.5, weight: .bold)).foregroundStyle(Theme.accent)
+                    .help("Annuler la suppression (⌘Z)")
+            }
         }
         .padding(.horizontal, 14).padding(.vertical, 8)
         .background(Capsule().fill(Theme.card))
         .overlay(Capsule().strokeBorder(Theme.line, lineWidth: 1))
         .shadow(color: .black.opacity(0.12), radius: 8, y: 3)
         .accessibilityElement(children: .combine)
-        .accessibilityAction(named: "Annuler") { state.undoDeletion() }
+        .accessibilityAction(named: "Annuler") { if notice.undoable { state.undoDeletion() } }
     }
 }
 

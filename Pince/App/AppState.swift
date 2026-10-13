@@ -48,10 +48,14 @@ final class AppState {
         get { selection.primary }
         set { selection.select(newValue) }
     }
-    /// Derniere suppression, pour ⌘Z et le bandeau « Annuler ».
+    /// Derniere suppression, pour ⌘Z et le bandeau « Annuler » : oubliee apres
+    /// `DeletedClips.undoLifetime` (60 s).
     private(set) var lastDeletion: DeletedClips?
     private(set) var deletionNotice: DeletionNotice?
     private var noticeTask: Task<Void, Never>?
+    private var expiryTask: Task<Void, Never>?
+    /// Premiere purge apres la mise a jour (limite jamais choisie, 15 par defaut) : annulable.
+    private var firstPurgePending: Bool
     /// Limite demandee qui supprimerait des elements : en attente de confirmation.
     var pendingLimit: PendingLimit?
     #if DEBUG
@@ -81,6 +85,8 @@ final class AppState {
         }
         let defaults = UserDefaults.standard
         historyLimit = HistoryLimit.resolve(stored: defaults.object(forKey: Brand.key("HistoryLimit")))
+        firstPurgePending = defaults.object(forKey: Brand.key("HistoryLimit")) == nil
+            && !defaults.bool(forKey: Brand.key("FirstPurgeDone"))
         directPaste = defaults.bool(forKey: Brand.key("DirectPaste"))
         excludedApps = defaults.string(forKey: Brand.key("ExcludedApps")) ?? ""
         watcher.excludedApps = Self.parseApps(excludedApps)
@@ -105,7 +111,12 @@ final class AppState {
             case .files(let urls): try store.record(files: urls, sourceApp: source)
             case .image(let data): try store.record(imageData: data, sourceApp: source)
             }
-            if historyLimit > 0 { try store.trim(to: historyLimit) }
+            let purged = try store.trim(to: historyLimit)
+            if firstPurgePending {
+                firstPurgePending = false
+                UserDefaults.standard.set(true, forKey: Brand.key("FirstPurgeDone"))
+                remember(purged, notice: .purged(purged.count))
+            }
         } catch {
             NSLog("Pince : enregistrement impossible : \(error)")
         }
@@ -170,26 +181,53 @@ final class AppState {
     func delete(ids: Set<String>) {
         guard !ids.isEmpty else { return }
         let next = ClipSelection.next(afterDeleting: ids, in: orderedIds)
-        remember(try? store.delete(ids: ids))
+        let deleted = try? store.delete(ids: ids)
+        remember(deleted, notice: .deleted(deleted?.count ?? 0))
         reload()
         selection.select(next)
     }
 
     /// « Tout effacer » : les epingles restent ; annulable.
     func clearHistory(keepPinned: Bool) {
-        remember(try? store.clear(keepPinned: keepPinned))
+        let deleted = try? store.clear(keepPinned: keepPinned)
+        remember(deleted, notice: .deleted(deleted?.count ?? 0))
         reload()
     }
 
-    var canUndoDeletion: Bool { lastDeletion != nil }
+    var canUndoDeletion: Bool { lastDeletion?.isUndoable(at: Date()) == true }
 
     func undoDeletion() {
-        guard let deleted = lastDeletion else { return }
-        try? store.restore(deleted)
+        guard let deleted = lastDeletion, deleted.isUndoable(at: Date()) else { return }
+        let restored = (try? store.restore(deleted)) ?? []
         lastDeletion = nil
-        hideNotice()
+        expiryTask?.cancel()
         reload()
-        if let first = deleted.items.first { selection.select(first.id) }
+        selection.select(all: restored, in: orderedIds)
+        if restored.count < deleted.count {
+            show(.partial(restored: restored.count, skipped: deleted.count - restored.count))
+        } else {
+            hideNotice()
+        }
+    }
+
+    /// ⌘Z du menu : la saisie d'abord (editeur de texte qui peut annuler) ; puis la derniere
+    /// suppression, seulement depuis la fenetre ou le panneau ; sinon `undo:` standard (Reglages).
+    func undoCommand() {
+        if !Self.textCanUndo, canUndoDeletion, Self.listWindowIsKey {
+            undoDeletion()
+        } else {
+            NSApp.sendAction(Selector(("undo:")), to: nil, from: nil)
+        }
+    }
+
+    /// Le premier repondeur est un editeur de texte qui a quelque chose a annuler.
+    static var textCanUndo: Bool {
+        (NSApp.keyWindow?.firstResponder as? NSTextView)?.undoManager?.canUndo == true
+    }
+
+    private static var listWindowIsKey: Bool {
+        guard let window = NSApp.keyWindow else { return false }
+        return window === WindowSummoner.mainWindow || window is FloatingPanel
     }
 
     func hideNotice() {
@@ -197,10 +235,19 @@ final class AppState {
         deletionNotice = nil
     }
 
-    private func remember(_ deleted: DeletedClips?) {
+    private func remember(_ deleted: DeletedClips?, notice: DeletionNotice) {
         guard let deleted, !deleted.isEmpty else { return }
         lastDeletion = deleted
-        let notice = DeletionNotice(count: deleted.count)
+        expiryTask?.cancel()
+        expiryTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(DeletedClips.undoLifetime))
+            guard !Task.isCancelled, self?.lastDeletion?.date == deleted.date else { return }
+            self?.lastDeletion = nil
+        }
+        show(notice)
+    }
+
+    private func show(_ notice: DeletionNotice) {
         deletionNotice = notice
         noticeTask?.cancel()
         noticeTask = Task { [weak self] in
@@ -224,9 +271,10 @@ final class AppState {
 
     func applyHistoryLimit(_ limit: Int) {
         pendingLimit = nil
+        firstPurgePending = false
         historyLimit = limit
         UserDefaults.standard.set(limit, forKey: Brand.key("HistoryLimit"))
-        try? store.trim(to: limit)
+        _ = try? store.trim(to: limit)
         reload()
     }
 
@@ -294,10 +342,25 @@ final class AppState {
     func hidePanel() { panel?.hide() }
 }
 
+/// Bandeau en bas de la liste apres une suppression (avec « Annuler ») ou une restauration partielle.
 struct DeletionNotice: Equatable {
     let id = UUID()
-    let count: Int
-    var text: String { count > 1 ? "\(count) éléments supprimés" : "1 élément supprimé" }
+    let text: String
+    let undoable: Bool
+
+    static func deleted(_ n: Int) -> DeletionNotice {
+        DeletionNotice(text: n > 1 ? "\(n) éléments supprimés" : "1 élément supprimé", undoable: true)
+    }
+
+    static func purged(_ n: Int) -> DeletionNotice {
+        DeletionNotice(text: n > 1 ? "\(n) anciens éléments supprimés" : "1 ancien élément supprimé", undoable: true)
+    }
+
+    static func partial(restored: Int, skipped: Int) -> DeletionNotice {
+        let r = restored > 1 ? "\(restored) éléments restaurés" : "\(restored) élément restauré"
+        let s = skipped > 1 ? "\(skipped) déjà copiés à nouveau" : "1 déjà copié à nouveau"
+        return DeletionNotice(text: "\(r), \(s)", undoable: false)
+    }
 }
 
 struct PendingLimit: Equatable {
