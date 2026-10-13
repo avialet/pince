@@ -47,16 +47,17 @@ extension AppDelegate {
                     ("#2F6FEB", "com.figma.Desktop", -300),
                     ("{\"name\":\"Pince\",\"version\":\"0.1.0\",\"tags\":[\"mac\",\"local\"]}", "com.microsoft.VSCode", -3600 * 2),
                     ("Réunion de lancement jeudi 14 h, salle Calanque. Apporter les maquettes imprimées.", "com.apple.Notes", -3600 * 5),
-                    ("a.vialet@plan-net.com", "com.microsoft.Outlook", -86400 - 600),
+                    ("contact@exemple.fr", "com.microsoft.Outlook", -86400 - 600),
                     ("func toggle() {\n    isVisible ? hide() : show()\n}", "com.apple.dt.Xcode", -86400 * 3),
-                    ("/Users/aurelien/Documents/PERSO/vialetapps", "com.apple.finder", -86400 * 9),
+                    ("~/Documents/Notes/reunion.md", "com.apple.finder", -86400 * 9),
                 ]
                 for (text, app, age) in samples { _ = try? state.store.record(text: text, sourceApp: app, now: now.addingTimeInterval(age)) }
-                _ = try? state.store.record(files: [URL(fileURLWithPath: "/Users/aurelien/Desktop/Rapport final.pdf"), URL(fileURLWithPath: "/Users/aurelien/Desktop/budget.xlsx")], sourceApp: "com.apple.finder", now: now.addingTimeInterval(-120))
+                _ = try? state.store.record(files: [URL(fileURLWithPath: "/Users/Shared/Exemples/Rapport annuel.pdf"), URL(fileURLWithPath: "/Users/Shared/Exemples/Budget 2026.xlsx")], sourceApp: "com.apple.finder", now: now.addingTimeInterval(-120))
                 if let pinned = try? state.store.items(matching: "2F6FEB", kind: nil).first { try? state.store.setPinned(pinned.id, true) }
                 state.reload()
             }
             try? await Task.sleep(for: .seconds(2))
+            await applySnapshotSize(defaults)
             if let window = WindowSummoner.mainWindow { try? WindowSnapshot.write(window, to: URL(fileURLWithPath: base + "-1.png")) }
             state.togglePanel()
             try? await Task.sleep(for: .seconds(1))
@@ -66,6 +67,17 @@ extension AppDelegate {
             print("items: \(state.items.count), sections: \(state.sections.map { "\($0.title)=\($0.items.count)" })")
             NSApp.terminate(nil)
         }
+    }
+
+    /// `-PinceSnapshotSize 1000x720` : taille de contenu (points) de la fenetre principale avant capture.
+    func applySnapshotSize(_ defaults: UserDefaults) async {
+        guard let spec = defaults.string(forKey: "PinceSnapshotSize") else { return }
+        let parts = spec.lowercased().split(separator: "x").compactMap { Double($0) }
+        guard parts.count == 2, parts.allSatisfy({ $0 > 0 }), let window = WindowSummoner.mainWindow else { return }
+        window.setContentSize(NSSize(width: parts[0], height: parts[1]))
+        window.contentView?.layoutSubtreeIfNeeded()
+        // Un tour de boucle pour que SwiftUI refasse la disposition.
+        try? await Task.sleep(for: .milliseconds(500))
     }
 }
 #endif
