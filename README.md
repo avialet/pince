@@ -59,12 +59,13 @@ Le seul échange réseau de Pince est cette lecture de la version publiée. Aucu
 
 ## Notice
 
-- **⌃⇧Espace** (modifiable dans les Réglages) ouvre le panneau depuis n'importe quelle app. **↑↓** choisir, **↩** copier (ou coller directement si l'option est active), **⌘P** épingler, **⌘⌫** supprimer, **esc** fermer. Un clic ailleurs ferme aussi.
+- **⌃⇧Espace** (modifiable dans les Réglages) ouvre le panneau depuis n'importe quelle app. **↑↓** choisir, **↩** copier (ou coller directement si l'option est active), **⌘P** épingler, **⌫** (recherche vide) ou **⌘⌫** supprimer, **⌘Z** annuler la suppression, **esc** fermer. Un clic ailleurs ferme aussi.
 - La **recherche** ignore les accents et la casse : « eleve » trouve « Élève ».
 - Les **épingles** restent en tête et survivent au nettoyage de l'historique.
 - Une copie identique ne crée pas de doublon : elle remonte en tête.
 - La **fenêtre principale** ajoute les filtres par type (liens, images, fichiers, couleurs, code…). L'**icône de la barre des menus** liste les sept dernières copies.
 - **Clic droit** sur une entrée : copier, ouvrir le lien, afficher dans le Finder, copier le JSON formaté, épingler, supprimer.
+- **Supprimer facilement** : corbeille au survol d'une ligne, **⌫** sur la sélection, **⇧-clic** et **⌘-clic** dans la fenêtre pour en choisir plusieurs, « Tout effacer (garder les épingles) » dans le menu Édition. **⌘Z** ou « Annuler » en bas de la fenêtre restaure la dernière suppression.
 - **Coller directement** (Réglages › Historique) simule ⌘V dans l'app active ; macOS demande l'autorisation d'accessibilité une seule fois. Sans l'option, ↩ copie et vous collez vous-même.
 - Fermer la fenêtre ne quitte pas l'app : le raccourci et l'icône de la barre des menus restent actifs. **⌘Q** quitte vraiment.
 
@@ -75,7 +76,7 @@ Le seul échange réseau de Pince est cette lecture de la version publiée. Aucu
 ~/Library/Application Support/Pince/images/           # images copiees, en PNG
 ```
 
-Pour sauvegarder, copiez ce dossier. Pour repartir de zéro, quittez l'app et supprimez-le. Dans les Réglages, l'historique se limite à 100, 500 ou 2 000 éléments (500 par défaut), et « Effacer l'historique » garde les épingles.
+Pour sauvegarder, copiez ce dossier. Pour repartir de zéro, quittez l'app et supprimez-le. Dans les Réglages, l'historique garde les 15, 25, 50, 100 ou 500 derniers éléments, ou tout (15 par défaut). Les épingles ne comptent pas et ne sont jamais supprimées automatiquement ; baisser la limite demande confirmation. « Tout effacer » garde aussi les épingles.
 
 ## Compiler depuis les sources
 
