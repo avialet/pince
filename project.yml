@@ -1,0 +1,63 @@
+name: Pince
+options:
+  bundleIdPrefix: fr.vialet
+  deploymentTarget:
+    macOS: "26.0"
+  xcodeVersion: "26.0"
+  createIntermediateGroups: true
+# Version.xcconfig est ecrit par `make gen` depuis VERSION (MARKETING_VERSION).
+configFiles:
+  Debug: Version.xcconfig
+  Release: Version.xcconfig
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGN_STYLE: Manual
+    DEVELOPMENT_TEAM: ""
+    CURRENT_PROJECT_VERSION: "1"
+packages:
+  VialetKit:
+    url: https://github.com/avialet/vialetkit.git
+    from: "0.1.0"
+  PinceCore:
+    path: Packages/PinceCore
+targets:
+  Pince:
+    type: application
+    platform: macOS
+    sources:
+      - path: Pince
+        excludes:
+          - "Resources/Info.plist"
+    dependencies:
+      - package: VialetKit
+      - package: PinceCore
+    info:
+      path: Pince/Resources/Info.plist
+      properties:
+        CFBundleDisplayName: Pince
+        CFBundleName: Pince
+        LSMinimumSystemVersion: "26.0"
+        NSHumanReadableCopyright: "Aurelien Vialet"
+        CFBundleURLTypes:
+          - CFBundleURLName: fr.vialet.pince
+            CFBundleURLSchemes: [pince]
+        LSApplicationCategoryType: public.app-category.productivity
+        CFBundleIconFile: AppIcon
+    entitlements:
+      path: Pince/Resources/Pince.entitlements
+      properties:
+        com.apple.security.app-sandbox: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: fr.vialet.pince
+        ENABLE_HARDENED_RUNTIME: false
+schemes:
+  Pince:
+    build:
+      targets:
+        Pince: all
+    run:
+      config: Debug

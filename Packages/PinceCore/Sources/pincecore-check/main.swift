@@ -1,0 +1,5 @@
+import PinceCore
+
+run([
+    databaseTests,
+])
