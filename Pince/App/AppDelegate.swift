@@ -34,8 +34,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 #if DEBUG
 /// Mode capture sans ecran : `Pince -PinceSnapshot <dossier> [-PinceSnapshotSeed 1]
 /// [-PinceSnapshotAppearance dark] [-PinceSnapshotOnly a,b] [-PinceSnapshotSize 1000x720]`
-/// (avec PINCE_DB_PATH vers une base jetable). Ecrit `mainWindow`, `settings`, `about` et
-/// `floatingPanel` (`-sombre` en sombre) dans le dossier, puis quitte (voir SnapshotRunner).
+/// (avec PINCE_DB_PATH vers une base jetable). Ecrit `mainWindow`, `settings`, `about`,
+/// `floatingPanel`, `historique` (selection multiple, ligne survolee avec sa corbeille) et
+/// `annulation` (bandeau apres une suppression) (`-sombre` en sombre), puis quitte (voir SnapshotRunner).
 extension AppDelegate {
     func runSnapshotIfRequested() -> Bool {
         guard SnapshotRequest.parse(prefix: Brand.name, arguments: CommandLine.arguments) != nil else { return false }
@@ -46,8 +47,26 @@ extension AppDelegate {
             try await Task.sleep(for: .seconds(1))
             return NSApp.windows.first { $0 is FloatingPanel && $0.isVisible }
         }
+        let history = SnapshotScenario("historique") {
+            try await Task.sleep(for: .seconds(2))
+            let ids = state.orderedIds
+            guard ids.count > 5 else { return nil }
+            state.snapshotSelect([ids[1], ids[2], ids[3]])
+            state.snapshotHoverId = ids[5]
+            try await Task.sleep(for: .milliseconds(500))
+            return WindowSummoner.mainWindow
+        }
+        let undo = SnapshotScenario("annulation") {
+            try await Task.sleep(for: .seconds(2))
+            state.snapshotHoverId = nil
+            let ids = state.orderedIds
+            guard ids.count > 4 else { return nil }
+            state.delete(ids: [ids[2], ids[3], ids[4]])
+            try await Task.sleep(for: .milliseconds(600))
+            return WindowSummoner.mainWindow
+        }
         let standard = SnapshotRunner.standardScenarios(mainWindow: { WindowSummoner.mainWindow }, identity: Brand.identity)
-        return SnapshotRunner.runIfRequested(prefix: Brand.name, scenarios: standard + [panel])
+        return SnapshotRunner.runIfRequested(prefix: Brand.name, scenarios: standard + [panel, history, undo])
     }
 
     /// Exemples neutres, sans donnee personnelle.
