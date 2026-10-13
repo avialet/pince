@@ -104,22 +104,58 @@ public final class ClipStore: Sendable {
     }
 
     public func delete(_ id: String) throws {
-        let removed: ClipItem? = try database.write { db in
-            let item = try ClipItem.fetchOne(db, key: id)
-            try item?.delete(db)
-            return item
-        }
-        if let removed { removeImage(of: removed) }
+        try delete(ids: [id])
     }
 
-    /// Vide l'historique ; les epingles survivent si demande.
-    public func clear(keepPinned: Bool) throws {
-        let removed: [ClipItem] = try database.write { db in
-            let victims = keepPinned ? try ClipItem.filter(Column("pinned") == false).fetchAll(db) : try ClipItem.fetchAll(db)
-            for v in victims { try v.delete(db) }
-            return victims
+    /// Supprime ces elements (ids inconnus ignores) ; le resultat permet de les restaurer.
+    @discardableResult
+    public func delete(ids: Set<String>) throws -> DeletedClips {
+        let ids = Array(ids)
+        return try remove { db in try ClipItem.filter(keys: ids).fetchAll(db) }
+    }
+
+    /// Vide l'historique ; les epingles survivent si demande. Le resultat permet de restaurer.
+    @discardableResult
+    public func clear(keepPinned: Bool) throws -> DeletedClips {
+        try remove { db in keepPinned ? try ClipItem.filter(Column("pinned") == false).fetchAll(db) : try ClipItem.fetchAll(db) }
+    }
+
+    /// Remet des elements supprimes (et leurs images). Un contenu copie a nouveau entre-temps
+    /// n'est pas duplique.
+    public func restore(_ deleted: DeletedClips) throws {
+        let restored: [ClipItem] = try database.write { db in
+            var done: [ClipItem] = []
+            for item in deleted.items where try ClipItem.filter(Column("contentHash") == item.contentHash).fetchCount(db) == 0
+                && ClipItem.fetchOne(db, key: item.id) == nil {
+                try item.insert(db)
+                done.append(item)
+            }
+            return done
         }
-        removed.forEach(removeImage)
+        for item in restored {
+            if let data = deleted.images[item.id], let url = imageURL(for: item) { try? data.write(to: url) }
+        }
+    }
+
+    /// Nombre d'elements non epingles qu'une limite `limit` supprimerait (0 : sans limite).
+    public func overflowCount(limit: Int) throws -> Int {
+        guard limit > 0 else { return 0 }
+        let count = try database.read { db in try ClipItem.filter(Column("pinned") == false).fetchCount(db) }
+        return max(0, count - limit)
+    }
+
+    private func remove(_ victims: @escaping @Sendable (Database) throws -> [ClipItem]) throws -> DeletedClips {
+        let removed: [ClipItem] = try database.write { db in
+            let items = try victims(db)
+            for v in items { try v.delete(db) }
+            return items
+        }
+        var images: [String: Data] = [:]
+        for item in removed {
+            if let url = imageURL(for: item), let data = try? Data(contentsOf: url) { images[item.id] = data }
+            removeImage(of: item)
+        }
+        return DeletedClips(items: removed, images: images)
     }
 
     /// Garde les `max` entrees non epinglees les plus recentes (les epingles ne comptent pas).
@@ -146,4 +182,12 @@ public final class ClipStore: Sendable {
         h.update(data: data)
         return h.finalize().map { String(format: "%02x", $0) }.joined()
     }
+}
+
+/// Elements supprimes, gardes en memoire pour « Annuler ».
+public struct DeletedClips: Sendable {
+    public let items: [ClipItem]
+    let images: [String: Data]
+    public var count: Int { items.count }
+    public var isEmpty: Bool { items.isEmpty }
 }
