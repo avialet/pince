@@ -94,11 +94,13 @@ make release   # fabrique build/Pince-X.Y.Z.dmg et son empreinte
 |---|---|
 | `Packages/PinceCore` | Noyau sans interface : détection du contenu, historique SQLite ([GRDB](https://github.com/groue/GRDB.swift)), recherche, épingles |
 | `Pince` | L'application SwiftUI ; `App/Brand.swift` porte son identité |
-| `scripts` | Assemblage de l'app, du DMG et de l'icône |
+| `scripts` | Assemblage de l'app et du DMG habillé (`scripts/dmg` : fond et disposition, `make dmg-layout`) |
 | `docs` | [Publier une version](docs/publier-une-version.md), [tests](docs/tests.md), notes de version |
 
-Le socle commun (mises à jour, thème, raccourci global, panneau flottant) vient de
-[VialetKit](https://github.com/avialet/vialetkit). Publier une version ne demande que de
+Le socle commun (mises à jour, thème et police, raccourci global, panneau flottant, Réglages,
+À propos) vient de [VialetKit](https://github.com/avialet/vialetkit) 0.2. L'icône est la plaque
+de l'affiche, dessinée par `make icon` à partir de `Pince/App/Brand.swift` (teintes et glyphe ;
+le script `scripts/plaque.swift` vit dans le dépôt parent vialetapps). Publier une version ne demande que de
 modifier `VERSION` puis de pousser un tag `vX.Y.Z` : la CI construit et publie le DMG, et
 les utilisateurs reçoivent la mise à jour dans l'app.
 
