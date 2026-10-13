@@ -1,5 +1,6 @@
 import Foundation
 import GRDB
+import VialetKit
 
 /// Une entree de l'historique du presse-papiers.
 public struct ClipItem: Codable, Sendable, Identifiable, Equatable, FetchableRecord, PersistableRecord {

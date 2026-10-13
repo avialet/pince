@@ -1,5 +1,9 @@
 SHELL := /bin/zsh
 .SHELLFLAGS := -o pipefail -c
+# VIALETKIT_PATH=../vialetkit : kit local, resolu en absolu pour l'app et pour le noyau.
+ifdef VIALETKIT_PATH
+export VIALETKIT_PATH := $(abspath $(VIALETKIT_PATH))
+endif
 APP := Pince
 PROJECT := $(APP).xcodeproj
 BUILD_DIR := $(CURDIR)/build

@@ -1,6 +1,7 @@
 import CryptoKit
 import Foundation
 import GRDB
+import VialetKit
 
 /// Historique du presse-papiers : texte et metadonnees en SQLite, images en PNG
 /// dans un dossier a cote. Une meme copie remonte en tete au lieu de se dupliquer.
