@@ -6,7 +6,7 @@ import PinceCore
 struct SettingsView: View {
     @Environment(AppState.self) private var state
     @State private var trusted = Paster.isTrusted
-    @AppStorage("PinceMenuBar") private var menuBarVisible = true
+    @AppStorage(Brand.key("MenuBar")) private var menuBarVisible = true
 
     var body: some View {
         SettingsScreen(app: Brand.identity, hotKey: HotKeyController.shared, updater: Updater.shared,
