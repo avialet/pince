@@ -13,7 +13,7 @@ enum Brand {
     static let night: UInt32 = 0x0F1A2F
     static let nightInk: UInt32 = 0xC4D8FD
     /// Pictogramme de la plaque : sous-ensemble SVG absolu (M L H V C Q Z), boite 0-100, trait non rempli.
-    static let glyph = "M 24 20 L 44 50 L 24 80 M 76 20 L 56 50 L 76 80"
+    static let glyph = "M 20 18 L 40 50 L 20 82 M 80 18 L 60 50 L 80 82"
     static let updater = UpdaterConfiguration(repository: "avialet/pince", appName: name,
                                               bundleIdentifier: "fr.vialet.pince", displayName: displayName)
 
