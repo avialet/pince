@@ -10,7 +10,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if runSnapshotIfRequested() { return }
         if writeHubManifestIfRequested() { return }
         #endif
-        AppActions.shared.publish()
+        _ = DockPresence.shared
+        HubPresence.start(menuBar: MenuBarPresence.shared, actions: AppActions.shared, updater: Updater.shared)
         AppState.shared.start()
         HotKeyController.shared.start { AppState.shared.togglePanel() }
         // Laisse l'app s'afficher avant le moindre appel reseau.

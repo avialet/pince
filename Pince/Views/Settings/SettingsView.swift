@@ -9,8 +9,9 @@ struct SettingsView: View {
 
     var body: some View {
         SettingsScreen(app: Brand.identity, hotKey: HotKeyController.shared, updater: Updater.shared,
-                       menuBar: MenuBarPresence.shared,
+                       menuBar: MenuBarPresence.shared, dock: DockPresence.shared,
                        hotKeyHint: "Depuis n'importe quelle app : ouvre le panneau de l'historique, ↩ remet l'élément choisi dans le presse-papiers.",
+                       updateNote: HubPresence.updateNote,
                        width: 480) {
             SettingsCard(icon: "doc.on.clipboard", color: Theme.accent, title: "Historique") {
                 @Bindable var state = state

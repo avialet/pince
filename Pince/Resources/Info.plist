@@ -37,6 +37,8 @@
 	<string>public.app-category.utilities</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>26.0</string>
+	<key>LSUIElement</key>
+	<true/>
 	<key>NSHumanReadableCopyright</key>
 	<string>&#xA9; 2026 Aur&#xE9;lien Vialet</string>
 </dict>
